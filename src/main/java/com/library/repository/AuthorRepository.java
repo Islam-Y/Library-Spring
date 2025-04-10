@@ -10,7 +10,7 @@ public interface AuthorRepository {
     List<Author> findAll();
     Author save(Author author);
     void delete(int id);
-    List<Book> findBooksByAuthorId(int authorId);
-    Map<Integer, List<Book>> findBooksForAuthors(Collection<Integer> authorIds);
+    Set<Book> findBooksByAuthorId(int authorId);
+    Map<Integer, Set<Book>> findBooksForAuthors(Collection<Integer> authorIds);
 
 }

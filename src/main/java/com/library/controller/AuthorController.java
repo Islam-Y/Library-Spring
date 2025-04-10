@@ -2,14 +2,13 @@ package com.library.controller;
 
 import com.library.dto.AuthorDTO;
 import com.library.service.impl.AuthorServiceImpl;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/authors")
@@ -18,13 +17,13 @@ public class AuthorController {
     private final AuthorServiceImpl authorServiceImpl;
 
     @Autowired
-    public AuthorController(AuthorServiceImpl authorServiceImpl, ObjectMapper objectMapper) {
+    public AuthorController(AuthorServiceImpl authorServiceImpl) {
         this.authorServiceImpl = authorServiceImpl;
     }
 
     @GetMapping
-    public ResponseEntity<List<AuthorDTO>> getAllAuthors() {
-        List<AuthorDTO> authors = authorServiceImpl.getAllAuthors();
+    public ResponseEntity<Set<AuthorDTO>> getAllAuthors() {
+        Set<AuthorDTO> authors = authorServiceImpl.getAllAuthors();
         return ResponseEntity.ok(authors);
     }
 

@@ -1,24 +1,12 @@
 package com.library.dto;
 
-import com.library.entity.Book;
-import com.library.entity.Publisher;
-
-import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 
 public class PublisherDTO {
-    private int id;
+    private Integer id;
     private String name;
-    private List<Integer> bookIds;
-
-    public PublisherDTO() {}
-
-    public PublisherDTO(Publisher publisher) {
-       this.id = publisher.getId();
-       this.name = publisher.getName();
-       this.bookIds = publisher.getBooks().stream()
-               .map(Book::getId)
-               .toList();
-    }
+    private Set<Integer> bookIds;
 
     public int getId() {
         return id;
@@ -28,7 +16,7 @@ public class PublisherDTO {
         return name;
     }
 
-    public List<Integer> getBookIds() {
+    public Set<Integer> getBookIds() {
         return bookIds;
     }
 
@@ -40,8 +28,29 @@ public class PublisherDTO {
         this.name = name;
     }
 
-    public void setBookIds(List<Integer> bookIds) {
+    public void setBookIds(Set<Integer> bookIds) {
         this.bookIds = bookIds;
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        PublisherDTO that = (PublisherDTO) o;
+        return Objects.equals(id, that.id) && Objects.equals(name, that.name) && Objects.equals(bookIds, that.bookIds);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, name, bookIds);
+    }
+
+    @Override
+    public String toString() {
+        return "PublisherDTO{" +
+                "id=" + id +
+                ", name='" + name + '\'' +
+                ", bookIds=" + bookIds +
+                '}';
+    }
 }

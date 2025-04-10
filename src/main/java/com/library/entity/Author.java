@@ -1,24 +1,45 @@
 package com.library.entity;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 
+import java.util.*;
+
+@Entity
+@Table(name = "authors")
 public class Author {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
+
+    @NotBlank(message = "Author name cannot be blank")
+    @Size(min = 2, max = 50, message = "Name must be between 2 and 50 characters")
+    @Pattern(regexp = "^[a-zA-Z\\s-]+$", message = "Name can only contain letters, spaces, and hyphens")
+    @Column(nullable = false)
     private String name;
+
+    @NotBlank(message = "Author surname cannot be blank")
+    @Size(min = 2, max = 50, message = "Surname must be between 2 and 50 characters")
+    @Pattern(regexp = "^[a-zA-Z\\s-]+$", message = "Surname can only contain letters, spaces, and hyphens")
+    @Column(nullable = false)
     private String surname;
+
+    @NotBlank(message = "Country cannot be blank")
+    @Size(min = 2, max = 50, message = "Country must be between 2 and 50 characters")
+    @Column(nullable = false)
     private String country;
-    private List<Book> books = new ArrayList<>();
+
+    @ManyToMany(mappedBy = "authors")
+    private Set<Book> books = new HashSet<>();
 
     public Author() {}
 
-    public Author(Integer id, String name, String surname, String country, List<Book> books) {
-        this.id = id;
+    public Author(String name, String surname, String country) {
         this.name = name;
         this.surname = surname;
         this.country = country;
-        this.books = books;
     }
 
     public Integer getId() {
@@ -53,13 +74,13 @@ public class Author {
         this.country = country;
     }
 
-    public List<Book> getBooks() {
+    public Set<Book> getBooks() {
         return books;
     }
 
 
 
-    public void setBooks(List<Book> books) {
+    public void setBooks(Set<Book> books) {
         this.books = books;
     }
 
@@ -73,29 +94,5 @@ public class Author {
         book.getAuthors().remove(this);
     }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        Author author = (Author) o;
-        return  Objects.equals(id, author.id) &&
-                Objects.equals(name, author.name) &&
-                Objects.equals(surname, author.surname) &&
-                Objects.equals(country, author.country);    }
 
-    @Override
-    public int hashCode() {
-        return Objects.hash(id, name, surname, country);
-    }
-
-    @Override
-    public String toString() {
-        return "Author{" +
-                "id=" + id +
-                ", name='" + name + '\'' +
-                ", surname='" + surname + '\'' +
-                ", country='" + country + '\'' +
-                ", books=" + books +
-                '}';
-    }
 }

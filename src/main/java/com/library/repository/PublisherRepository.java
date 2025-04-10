@@ -7,9 +7,9 @@ import java.util.*;
 
 public interface PublisherRepository {
     Optional<Publisher> findById(int id);
-    List<Publisher> findAll();
+    Set<Publisher> findAll();
     Publisher save(Publisher publisher);
     void delete(int id);
-    List<Book> findBooksByPublisherId(int publisherId);
-    Map<Integer, List<Book>> findBooksForPublishers(Collection<Integer> publisherIds);
+    Set<Book> findBooksByPublisherId(int publisherId);
+    Map<Integer, Set<Book>> findBooksForPublishers(Collection<Integer> publisherIds);
 }

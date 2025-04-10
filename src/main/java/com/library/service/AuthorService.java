@@ -1,12 +1,15 @@
 package com.library.service;
 
-import com.library.entity.Author;
+import com.library.dto.AuthorDTO;
+import com.library.exception.AuthorServiceException;
 
-import java.util.Collection;
-import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 public interface AuthorService {
-    Set<Author> findAuthorsByBookId(int bookId);
-    Map<Integer, Set<Author>> findAuthorsForBooks(Collection<Integer> bookIds);
+    Set<AuthorDTO> getAllAuthors();
+    Optional<AuthorDTO> getAuthorById(int id) throws AuthorServiceException;
+    void addAuthor(AuthorDTO authorDTO) throws AuthorServiceException;
+    void updateAuthor(int id, AuthorDTO authorDTO) throws AuthorServiceException;
+    void deleteAuthor(int id) throws AuthorServiceException;
 }

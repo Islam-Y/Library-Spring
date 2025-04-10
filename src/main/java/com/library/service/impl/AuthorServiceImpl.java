@@ -1,129 +1,113 @@
 package com.library.service.impl;
 
-import com.library.exception.AuthorServiceException;
-import com.library.exception.BookServiceException;
-import com.library.entity.Book;
-import com.library.repository.AuthorDAO;
 import com.library.dto.AuthorDTO;
 import com.library.entity.Author;
+import com.library.entity.Book;
+import com.library.exception.AuthorServiceException;
 import com.library.mapper.AuthorMapper;
-import com.library.repository.impl.BookRepositoryImpl;
+import com.library.repository.AuthorRepository;
+import com.library.repository.BookRepository;
+import com.library.service.AuthorService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.sql.SQLException;
-import java.util.Collections;
-import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
-public class AuthorServiceImpl {
-    private final AuthorDAO authorDAO;
+@Service
+public class AuthorServiceImpl implements AuthorService {
+    private final AuthorRepository authorRepository;
     private final AuthorMapper authorMapper;
+    private final BookRepository bookRepository;
 
-    private AuthorServiceImpl(AuthorDAO authorDAO, AuthorMapper mapper) {
-        this.authorDAO = authorDAO;
-        this.authorMapper = mapper;
+    @Autowired
+    public AuthorServiceImpl(AuthorRepository authorRepository, AuthorMapper authorMapper, BookRepository bookRepository) {
+        this.authorRepository = authorRepository;
+        this.authorMapper = authorMapper;
+        this.bookRepository = bookRepository;
     }
 
-    AuthorServiceImpl() {
-        this.authorMapper = AuthorMapper.INSTANCE;
-        this.authorDAO = new AuthorDAO();
+    @Transactional(readOnly = true)
+    public Set<AuthorDTO> getAllAuthors() {
+        return authorRepository.findAll().stream()
+                .map(authorMapper::toDto)
+                .collect(Collectors.toSet());
     }
 
-    public static AuthorServiceImpl forTest(AuthorDAO authorDAO, AuthorMapper authorMapper) {
-        return new AuthorServiceImpl(authorDAO, authorMapper);
-    }
-
-    public List<AuthorDTO> getAllAuthors() {
-        List<Author> authors = null;
-        try {
-            authors = authorDAO.getAll();
-        } catch (SQLException e) {
-            throw new AuthorServiceException("Ошибка при получении списка авторов", e);
-        }
-        return authors.stream()
-                .map(authorMapper::toDTO)
-                .toList();
-    }
-
+    @Transactional(readOnly = true)
     public Optional<AuthorDTO> getAuthorById(int id) {
-        try {
-            return authorDAO.getById(id)
-                    .map(authorMapper::toDTO)
-                    .orElseThrow(() -> new AuthorServiceException("Автор не найден", new RuntimeException()));
-        } catch (SQLException e) {
-            throw new AuthorServiceException("Ошибка при получении автора с ID " + id, e);
-        }
+        return authorRepository.findById(id)
+                .map(authorMapper::toDto);
     }
 
+    @Transactional
     public void addAuthor(AuthorDTO authorDTO) {
-        BookRepositoryImpl bookRepositoryImpl = new BookRepositoryImpl();
-        try {
-            if (authorDTO.getName() == null || authorDTO.getName().isEmpty()) {
-                throw new IllegalArgumentException("Name is required");
-            }
+        validateAuthor(authorDTO);
 
-            Author author = authorMapper.toModel(authorDTO);
+        Author author = authorMapper.toEntity(authorDTO);
+        setBooksFromIds(author, authorDTO.getBookIds());
 
-            Set<Integer> bookIds = authorDTO.getBookIds() != null
-                    ? authorDTO.getBookIds()
-                    : Collections.emptySet();
-
-            Set<Book> books = bookIds.stream()
-                    .map(bookId -> {
-                        try {
-                            return bookRepositoryImpl.getById(bookId);
-                        } catch (SQLException e) {
-                            throw new AuthorServiceException("Error adding books", new RuntimeException(e));
-                        }
-                    })
-                    .flatMap(Optional::stream)
-                    .collect(Collectors.toSet());
-
-            author.setBooks(books);
-            authorDAO.create(author);
-        } catch (SQLException e) {
-            if (e.getErrorCode() == 23503) {
-                throw new BookServiceException("Foreign key constraint error: book not found", e);
-            }
-            throw new BookServiceException("Error while adding book", e);
-        }
+        authorRepository.save(author);
     }
 
+    @Transactional
     public void updateAuthor(int id, AuthorDTO authorDTO) {
-        try {
-            Author existingAuthor = authorDAO.getById(id)
-                    .orElseThrow(() -> new AuthorServiceException("Author not found", new RuntimeException()));
+        validateAuthor(authorDTO);
 
-            existingAuthor.setName(authorDTO.getName());
-            existingAuthor.setSurname(authorDTO.getSurname());
-            existingAuthor.setCountry(authorDTO.getCountry());
+        Author existingAuthor = authorRepository.findById(id)
+                .orElseThrow(() -> new AuthorServiceException("Author not found"));
 
-            Set<Integer> bookIds = authorDTO.getBookIds() != null
-                    ? authorDTO.getBookIds()
-                    : Collections.emptySet();
+        authorMapper.updateEntity(authorDTO, existingAuthor);
+        setBooksFromIds(existingAuthor, authorDTO.getBookIds());
 
-            Set<Book> books = bookIds.stream()
-                    .map(bookId -> {
-                        Book book = new Book();
-                        book.setId(bookId);
-                        return book;
-                    })
-                    .collect(Collectors.toSet());
-            existingAuthor.setBooks(books);
+        authorRepository.save(existingAuthor);
+    }
 
-            authorDAO.update(existingAuthor);
-            authorDAO.updateBooksOfAuthor(existingAuthor);
-        } catch (SQLException e) {
-            throw new AuthorServiceException("Error while updating author with ID " + id, e);
+    @Transactional
+    public void deleteAuthor(int id) {
+        if (!authorRepository.findById(id).isPresent()) {
+            throw new AuthorServiceException("Author not found");
+        }
+
+        authorRepository.delete(id);
+    }
+
+    private void validateAuthor(AuthorDTO authorDTO) {
+        if (authorDTO.getName() == null || authorDTO.getName().isEmpty()) {
+            throw new IllegalArgumentException("Name is required");
         }
     }
 
-    public void deleteAuthor(int id) {
-        try {
-            authorDAO.delete(id);
-        } catch (SQLException e) {
-            throw new AuthorServiceException("Ошибка при удалении автора с ID " + id, e);
+    private void setBooksFromIds(Author author, Set<Integer> bookIds) {
+        if (bookIds == null || bookIds.isEmpty()) {
+            author.getBooks().forEach(book -> book.getAuthors().remove(author));
+            author.getBooks().clear();
+            return;
         }
+
+        Set<Book> books = bookRepository.findBooksByIds(bookIds);
+
+        if (books.size() != bookIds.size()) {
+            Set<Integer> missingIds = bookIds.stream()
+                    .filter(id -> books.stream().noneMatch(b -> b.getId().equals(id)))
+                    .collect(Collectors.toSet());
+            throw new AuthorServiceException("Books not found with IDs: " + missingIds);
+        }
+
+        author.getBooks().forEach(book -> {
+            if (!books.contains(book)) {
+                book.getAuthors().remove(author);
+            }
+        });
+
+        books.forEach(book -> {
+            if (!author.getBooks().contains(book)) {
+                book.getAuthors().add(author);
+            }
+        });
+
+        author.setBooks(books);
     }
 }

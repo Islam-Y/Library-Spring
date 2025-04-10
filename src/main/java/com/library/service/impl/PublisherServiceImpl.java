@@ -1,100 +1,108 @@
 package com.library.service.impl;
 
-import com.library.exception.PublisherServiceException;
-import com.library.entity.Book;
-import com.library.repository.impl.PublisherRepositoryImpl;
 import com.library.dto.PublisherDTO;
+import com.library.entity.Book;
 import com.library.entity.Publisher;
+import com.library.exception.PublisherServiceException;
 import com.library.mapper.PublisherMapper;
+import com.library.repository.PublisherRepository;
+import com.library.service.PublisherService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.sql.SQLException;
 import java.util.Collections;
-import java.util.List;
+import java.util.Set;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
-public class PublisherServiceImpl {
-    private final PublisherRepositoryImpl publisherRepositoryImpl;
+@Service
+public class PublisherServiceImpl implements PublisherService {
+    private final PublisherRepository publisherRepository;
     private final PublisherMapper publisherMapper;
 
-    PublisherServiceImpl() {
-        this.publisherRepositoryImpl = new PublisherRepositoryImpl();
-        this.publisherMapper = PublisherMapper.INSTANCE;
+    @Autowired
+    public PublisherServiceImpl(PublisherRepository publisherRepository, PublisherMapper publisherMapper) {
+        this.publisherRepository = publisherRepository;
+        this.publisherMapper = publisherMapper;
     }
 
-    private PublisherServiceImpl(PublisherRepositoryImpl publisherRepositoryImpl, PublisherMapper mapper) {
-        this.publisherRepositoryImpl = publisherRepositoryImpl;
-        this.publisherMapper = mapper;
+    @Transactional(readOnly = true)
+    public Set<PublisherDTO> getAllPublishers() {
+        return publisherRepository.findAll().stream()
+                .map(publisherMapper::toDTO)
+                .collect(Collectors.toSet());
     }
 
-    public static PublisherServiceImpl forTest(PublisherRepositoryImpl publisherRepositoryImpl, PublisherMapper publisherMapper) {
-        return new PublisherServiceImpl(publisherRepositoryImpl, publisherMapper);
-    }
-
-    public List<PublisherDTO> getAllPublishers() {
-        try {
-            return publisherRepositoryImpl.getAll().stream()
-                    .map(publisherMapper::toDTO)
-                    .toList();
-        } catch (SQLException e) {
-            throw new PublisherServiceException("Error while getting list of publishers", e);
-        }
-    }
-
+    @Transactional(readOnly = true)
     public Optional<PublisherDTO> getPublisherById(int id) {
-        try {
-            return publisherRepositoryImpl.getById(id)
-                    .map(publisherMapper::toDTO)
-                    .orElseThrow(() -> new PublisherServiceException("Publisher not found", new RuntimeException()));
-        } catch (SQLException e) {
-            throw new PublisherServiceException("Error while getting publisher with ID " + id, e);
-        }
+        return publisherRepository.findById(id)
+                .map(publisherMapper::toDTO);
     }
 
+    @Transactional
     public void addPublisher(PublisherDTO publisherDTO) {
-        Publisher publisher = publisherMapper.toModel(publisherDTO);
         if (publisherDTO.getName() == null || publisherDTO.getName().isEmpty()) {
             throw new IllegalArgumentException("Name is required");
         }
-        try {
-            publisherRepositoryImpl.create(publisher);
-            publisherRepositoryImpl.updatePublisherBooks(publisher.getId(), publisherDTO.getBookIds());
 
-        } catch (SQLException e) {
-            throw new PublisherServiceException("Error while adding publisher to database", e);
+        Publisher publisher = publisherMapper.toEntity(publisherDTO);
+
+        Set<Book> books = Optional.ofNullable(publisherDTO.getBookIds())
+                .orElse(Collections.emptySet())
+                .stream()
+                .map(bookId -> {
+                    Book book = new Book();
+                    book.setId(bookId);
+                    return book;
+                })
+                .collect(Collectors.toSet());
+
+        publisher.setBooks(books);
+
+        try {
+            publisherRepository.save(publisher);
+        } catch (Exception e) {
+            throw new PublisherServiceException("Error while adding publisher");
         }
     }
 
+    @Transactional
     public void updatePublisher(int id, PublisherDTO publisherDTO) {
+        Publisher existingPublisher = publisherRepository.findById(id)
+                .orElseThrow(() -> new PublisherServiceException("Publisher not found"));
+
+        existingPublisher.setName(publisherDTO.getName());
+
+        Set<Book> books = Optional.ofNullable(publisherDTO.getBookIds())
+                .orElse(Collections.emptySet())
+                .stream()
+                .map(bookId -> {
+                    Book book = new Book();
+                    book.setId(bookId);
+                    return book;
+                })
+                .collect(Collectors.toSet());
+
+        existingPublisher.setBooks(books);
+
         try {
-            Publisher existingPublisher = publisherRepositoryImpl.getById(id)
-                    .orElseThrow(() -> new PublisherServiceException("Publisher not found", new RuntimeException()));
-            existingPublisher.setName(publisherDTO.getName());
-
-            List<Integer> bookIds = publisherDTO.getBookIds() != null
-                    ? publisherDTO.getBookIds()
-                    : Collections.emptyList();
-
-            List<Book> books = bookIds.stream()
-                    .map(bookId -> {
-                        Book book = new Book();
-                        book.setId(bookId);
-                        return book;
-                    })
-                    .toList();
-            existingPublisher.setBooks(books);
-
-            publisherRepositoryImpl.update(existingPublisher);
-            publisherRepositoryImpl.updatePublisherBooks(id, publisherDTO.getBookIds());
-        } catch (SQLException e) {
-            throw new PublisherServiceException("Error while updating publisher with ID " + id, e);
+            publisherRepository.save(existingPublisher);
+        } catch (Exception e) {
+            throw new PublisherServiceException("Error while updating publisher");
         }
     }
 
+    @Transactional
     public void deletePublisher(int id) {
+        if (!publisherRepository.findById(id).isPresent()) {
+            throw new PublisherServiceException("Publisher not found");
+        }
+
         try {
-            publisherRepositoryImpl.delete(id);
-        } catch (SQLException e) {
-            throw new PublisherServiceException("Error while deleting publisher with ID " + id, e);
+            publisherRepository.delete(id);
+        } catch (Exception e) {
+            throw new PublisherServiceException("Error while deleting publisher");
         }
     }
 }

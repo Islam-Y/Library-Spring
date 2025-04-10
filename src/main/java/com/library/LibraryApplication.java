@@ -1,6 +1,6 @@
 package com.library;
 
-public class Main {
+public class LibraryApplication {
     public static void main(String[] args) {
 
     }

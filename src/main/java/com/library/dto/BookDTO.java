@@ -1,31 +1,15 @@
 package com.library.dto;
 
-import com.library.entity.Book;
-import com.library.entity.Author;
-
+import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 public class BookDTO {
-    private int id;
+    private Integer id;
     private String title;
     private String publishedDate;
     private String genre;
     private Integer publisherId;
     private Set<Integer> authorIds;
-
-    public BookDTO() {}
-
-    public BookDTO(Book book) {
-        this.id = book.getId();
-        this.title = book.getTitle();
-        this.publishedDate = book.getPublishedDate();
-        this.genre = book.getGenre();
-        this.publisherId = book.getPublisher() != null ? book.getPublisher().getId() : null;
-        this.authorIds = book.getAuthors().stream()
-                .map(Author::getId)
-                .collect(Collectors.toSet());
-    }
 
     public int getId() {
         return id;
@@ -73,5 +57,30 @@ public class BookDTO {
 
     public void setAuthorIds(Set<Integer> authorIds) {
         this.authorIds = authorIds;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        BookDTO bookDTO = (BookDTO) o;
+        return Objects.equals(id, bookDTO.id) && Objects.equals(title, bookDTO.title) && Objects.equals(publishedDate, bookDTO.publishedDate) && Objects.equals(genre, bookDTO.genre) && Objects.equals(publisherId, bookDTO.publisherId) && Objects.equals(authorIds, bookDTO.authorIds);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, title, publishedDate, genre, publisherId, authorIds);
+    }
+
+    @Override
+    public String toString() {
+        return "BookDTO{" +
+                "id=" + id +
+                ", title='" + title + '\'' +
+                ", publishedDate='" + publishedDate + '\'' +
+                ", genre='" + genre + '\'' +
+                ", publisherId=" + publisherId +
+                ", authorIds=" + authorIds +
+                '}';
     }
 }

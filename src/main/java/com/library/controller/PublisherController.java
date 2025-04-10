@@ -7,7 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/publishers")
@@ -20,8 +20,8 @@ public class PublisherController {
     }
 
     @GetMapping
-    public ResponseEntity<List<PublisherDTO>> getAllPublishers() {
-        List<PublisherDTO> publishers = publisherServiceImpl.getAllPublishers();
+    public ResponseEntity<Set<PublisherDTO>> getAllPublishers() {
+        Set<PublisherDTO> publishers = publisherServiceImpl.getAllPublishers();
         return ResponseEntity.ok(publishers);
     }
 

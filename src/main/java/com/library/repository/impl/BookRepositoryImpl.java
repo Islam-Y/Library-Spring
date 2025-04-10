@@ -1,186 +1,104 @@
 package com.library.repository.impl;
 
+import com.library.dto.BookAuthorDTO;
 import com.library.entity.Author;
 import com.library.entity.Book;
-import com.library.repository.AuthorRowMapper;
 import com.library.repository.BookRepository;
-import com.library.repository.BookRowMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.jdbc.support.GeneratedKeyHolder;
-import org.springframework.jdbc.support.KeyHolder;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.TypedQuery;
+import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Repository;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.sql.Types;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Repository
 public class BookRepositoryImpl implements BookRepository {
 
-    private static final Logger logger = LoggerFactory.getLogger(BookRepositoryImpl.class);
+    @PersistenceContext
+    private EntityManager entityManager;
 
-    private final JdbcTemplate jdbcTemplate;
-    private final NamedParameterJdbcTemplate namedParameterJdbcTemplate;
-    private final BookRowMapper bookRowMapper;
-    private final AuthorRowMapper authorRowMapper;
-    private final BookRepository bookRepository;
-
-    public BookRepositoryImpl(JdbcTemplate jdbcTemplate, NamedParameterJdbcTemplate namedParameterJdbcTemplate,
-                              BookRowMapper bookRowMapper, AuthorRowMapper authorRowMapper, BookRepository bookRepository) {
-        this.jdbcTemplate = jdbcTemplate;
-        this.namedParameterJdbcTemplate = namedParameterJdbcTemplate;
-        this.bookRowMapper = bookRowMapper;
-        this.authorRowMapper = authorRowMapper;
-        this.bookRepository = bookRepository;
-    }
-
-    @Transactional(readOnly = true)
+    @Override
     public Optional<Book> findById(int id) {
-        String sql = """
-                SELECT b.id, b.title, b.published_date, b.genre, 
-                       p.id AS publisher_id, p.name AS publisher_name
-                FROM books b
-                LEFT JOIN publishers p ON b.publisher_id = p.id
-                WHERE b.id = ?
-                """;
-
-        List<Book> books = jdbcTemplate.query(sql, bookRowMapper, id);
-
-        if (books.isEmpty()) {
-            return Optional.empty();
-        }
-
-        Book book = books.get(0);
-        book.setAuthors(bookRepository.findAuthorsByBookId(id));
-        return Optional.of(book);
+        Book book = entityManager.find(Book.class, id);
+        return Optional.ofNullable(book);
     }
 
-    @Transactional(readOnly = true)
+    @Override
     public List<Book> findAll() {
-        String sql = """
-                SELECT b.id, b.title, b.published_date, b.genre, 
-                       p.id AS publisher_id, p.name AS publisher_name
-                FROM books b
-                LEFT JOIN publishers p ON b.publisher_id = p.id
-                """;
-
-        List<Book> books = jdbcTemplate.query(sql, bookRowMapper);
-
-        Map<Integer, Book> bookMap = new HashMap<>();
-        books.forEach(book -> bookMap.put(book.getId(), book));
-
-        bookRepository.findAuthorsForBooks(bookMap.keySet()).forEach((bookId, authors) ->
-                bookMap.get(bookId).setAuthors(authors));
-
-        return books;
+        TypedQuery<Book> query = entityManager.createQuery(
+                "SELECT DISTINCT b FROM Book b LEFT JOIN FETCH b.authors LEFT JOIN FETCH b.publisher",
+                Book.class);
+        return query.getResultList();
     }
 
+    @Override
     @Transactional
     public Book save(Book book) {
-        return book.getId() == null ? insert(book) : update(book);
-    }
-
-    @Transactional
-    public void delete(int id) {
-        logger.info("Deleting book with id {}", id);
-        jdbcTemplate.update("DELETE FROM book_author WHERE book_id = ?", id);
-        jdbcTemplate.update("DELETE FROM books WHERE id = ?", id);
-    }
-
-    private Book insert(Book book) {
-        String sql = "INSERT INTO books (title, published_date, publisher_id, genre) VALUES (?, ?, ?, ?)";
-        KeyHolder keyHolder = new GeneratedKeyHolder();
-
-        jdbcTemplate.update(conn -> {
-            var ps = conn.prepareStatement(sql, new String[]{"id"});
-            ps.setString(1, book.getTitle());
-            ps.setObject(2, book.getPublishedDate(), Types.DATE);
-            ps.setObject(3, book.getPublisher() != null ? book.getPublisher().getId() : null, Types.INTEGER);
-            ps.setString(4, book.getGenre());
-            return ps;
-        }, keyHolder);
-
-        book.setId(Objects.requireNonNull(keyHolder.getKey()).intValue());
-        updateAuthorsForBook(book);
-        return book;
-    }
-
-    private Book update(Book book) {
-        String sql = "UPDATE books SET title = ?, published_date = ?, publisher_id = ?, genre = ? WHERE id = ?";
-        jdbcTemplate.update(sql,
-                book.getTitle(),
-                book.getPublishedDate(),
-                book.getPublisher() != null ? book.getPublisher().getId() : null,
-                book.getGenre(),
-                book.getId());
-        updateAuthorsForBook(book);
-        return book;
-    }
-
-    private void updateAuthorsForBook(Book book) {
-        jdbcTemplate.update("DELETE FROM book_author WHERE book_id = ?", book.getId());
-        if (book.getAuthors() != null && !book.getAuthors().isEmpty()) {
-            String sql = "INSERT INTO book_author (book_id, author_id) VALUES (?, ?)";
-            jdbcTemplate.batchUpdate(sql, book.getAuthors().stream()
-                    .map(author -> new Object[]{book.getId(), author.getId()})
-                    .toList());
+        if (book.getId() == null) {
+            entityManager.persist(book);
+            return book;
+        } else {
+            return entityManager.merge(book);
         }
     }
 
-    @Transactional(readOnly = true)
-    public List<Author> findAuthorsByBookId(int bookId) {
-        String sql = """
-                SELECT a.id, a.name, a.surname, a.country
-                FROM authors a
-                JOIN book_author ba ON a.id = ba.author_id
-                WHERE ba.book_id = ?
-                """;
-
-        List<Author> authors = jdbcTemplate.query(sql, authorRowMapper, bookId);
-
-        return authors.stream()
-                .distinct()
-                .toList();
+    @Override
+    @Transactional
+    public void delete(int id) {
+        Book book = entityManager.find(Book.class, id);
+        if (book != null) {
+            book.getAuthors().forEach(author -> author.getBooks().remove(book));
+            entityManager.remove(book);
+        }
     }
 
-    @Transactional(readOnly = true)
-    public Map<Integer, List<Author>> findAuthorsForBooks(Collection<Integer> bookIds) {
+    @Override
+    public Set<Author> findAuthorsByBookId(int bookId) {
+        TypedQuery<Author> query = entityManager.createQuery("""
+            SELECT a FROM Author a
+            JOIN a.books b
+            WHERE b.id = :bookId
+            """, Author.class);
+        query.setParameter("bookId", bookId);
+        return new HashSet<>(query.getResultList());
+    }
+
+    @Override
+    public Map<Integer, Set<Author>> findAuthorsForBooks(Collection<Integer> bookIds) {
         if (bookIds.isEmpty()) {
             return Collections.emptyMap();
         }
 
-        String sql = """
-                SELECT ba.book_id, a.id, a.name, a.surname, a.country
-                FROM authors a
-                JOIN book_author ba ON a.id = ba.author_id
-                WHERE ba.book_id IN (:bookIds)
-                """;
+        TypedQuery<BookAuthorDTO> query = entityManager.createQuery("""
+            SELECT NEW com.library.dto.BookAuthorDTO(b.id, a) FROM Book b
+            JOIN b.authors a
+            WHERE b.id IN :bookIds
+            """, BookAuthorDTO.class);
+        query.setParameter("bookIds", bookIds);
 
-        Map<String, Object> params = Collections.singletonMap("bookIds", bookIds);
-        Map<Integer, List<Author>> result = new HashMap<>();
-
-        namedParameterJdbcTemplate.query(sql, params, rs -> {
-            int bookId = rs.getInt("book_id");
-            Author author = authorRowMapper.mapRow(rs, rs.getRow());
-
-            List<Author> authors = result.computeIfAbsent(bookId, k -> new ArrayList<>());
-            if (!containsAuthor(authors, author)) {
-                authors.add(author);
-            }
-        });
-
-        return result;
+        return query.getResultList().stream()
+                .collect(Collectors.groupingBy(
+                        BookAuthorDTO::bookId,
+                        Collectors.mapping(
+                                BookAuthorDTO::author,
+                                Collectors.toSet()
+                        )));
     }
 
-    private boolean containsAuthor(List<Author> authors, Author target) {
-        for (Author author : authors) {
-            if (author.getId().equals(target.getId())) {
-                return true;
-            }
+    @Override
+    @Transactional
+    public Set<Book> findBooksByIds(Set<Integer> bookIds) {
+        if (bookIds == null || bookIds.isEmpty()) {
+            return Collections.emptySet();
         }
-        return false;
+
+        TypedQuery<Book> query = entityManager.createQuery(
+                "SELECT DISTINCT b FROM Book b LEFT JOIN FETCH b.authors WHERE b.id IN :bookIds",
+                Book.class);
+        query.setParameter("bookIds", bookIds);
+
+        return new HashSet<>(query.getResultList());
     }
 }

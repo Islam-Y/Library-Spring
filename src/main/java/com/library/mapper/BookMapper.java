@@ -7,15 +7,13 @@ import com.library.entity.Publisher;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.Named;
-import org.mapstruct.factory.Mappers;
 
 import java.util.Collections;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-@Mapper
+@Mapper(componentModel = "spring")
 public interface BookMapper {
-    BookMapper INSTANCE = Mappers.getMapper(BookMapper.class);
 
     @Mapping(source = "publisher.id", target = "publisherId")
     @Mapping(source = "authors", target = "authorIds", qualifiedByName = "mapAuthorsToAuthorIds")
@@ -23,10 +21,10 @@ public interface BookMapper {
 
     @Mapping(target = "authors", source = "authorIds", qualifiedByName = "mapAuthorIdsToAuthors")
     @Mapping(target = "publisher", source = "publisherId", qualifiedByName = "mapPublisherIdToPublisher")
-    Book toModel(BookDTO bookDTO);
+    Book toEntity(BookDTO bookDTO);
 
     @Named("mapAuthorsToAuthorIds")
-    static Set<Integer> mapAuthorsToAuthorIds(Set<Author> authors) {
+    default Set<Integer> mapAuthorsToAuthorIds(Set<Author> authors) {
         if (authors == null) return Collections.emptySet();
         return authors.stream()
                 .map(Author::getId)
@@ -34,7 +32,7 @@ public interface BookMapper {
     }
 
     @Named("mapAuthorIdsToAuthors")
-    static Set<Author> mapAuthorIdsToAuthors(Set<Integer> authorIds) {
+    default Set<Author> mapAuthorIdsToAuthors(Set<Integer> authorIds) {
         if (authorIds == null) return Collections.emptySet();
         return authorIds.stream()
                 .map(id -> {
@@ -46,7 +44,7 @@ public interface BookMapper {
     }
 
     @Named("mapPublisherIdToPublisher")
-    static Publisher mapPublisherIdToPublisher(Integer publisherId) {
+    default Publisher mapPublisherIdToPublisher(Integer publisherId) {
         if (publisherId == null) return null;
         Publisher publisher = new Publisher();
         publisher.setId(publisherId);

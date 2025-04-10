@@ -1,19 +1,30 @@
 package com.library.entity;
 
+import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
 import java.util.*;
 
+@Entity
+@Table(name = "publishers")
 public class Publisher {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
+
+    @NotBlank(message = "Publisher name cannot be blank")
+    @Size(min = 2, max = 100, message = "Publisher name must be between 2 and 100 characters")
+    @Column(nullable = false, unique = true)
     private String name;
-    private List<Book> books = new ArrayList<>();
 
-    public Publisher() {
-    }
+    @OneToMany(mappedBy = "publisher", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<Book> books = new HashSet<>();
 
-    public Publisher(Integer id, String name, List<Book> books) {
-        this.id = id;
+    public Publisher() {}
+
+    public Publisher(String name) {
         this.name = name;
-        this.books = books;
     }
 
     public Integer getId() {
@@ -32,11 +43,11 @@ public class Publisher {
         this.name = name;
     }
 
-    public List<Book> getBooks() {
+    public Set<Book> getBooks() {
         return books;
     }
 
-    public void setBooks(List<Book> books) {
+    public void setBooks(Set<Book> books) {
         this.books = books;
     }
 
@@ -56,13 +67,12 @@ public class Publisher {
         if (o == null || getClass() != o.getClass()) return false;
         Publisher publisher = (Publisher) o;
         return  Objects.equals(id, publisher.id) &&
-                Objects.equals(name, publisher.name) &&
-                Objects.equals(books, publisher.books);
+                Objects.equals(name, publisher.name);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, name, books);
+        return Objects.hash(id, name);
     }
 
     @Override
@@ -70,7 +80,6 @@ public class Publisher {
         return "Publisher{" +
                 "id=" + id +
                 ", name='" + name + '\'' +
-                ", books=" + books +
                 '}';
     }
 }

@@ -1,10 +1,7 @@
 package com.library.dto;
 
-import com.library.entity.Author;
-import com.library.entity.Book;
-
+import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 public class AuthorDTO {
     private Integer id;
@@ -12,18 +9,6 @@ public class AuthorDTO {
     private String surname;
     private String country;
     private Set<Integer> bookIds;
-
-    public AuthorDTO() {}
-
-    public AuthorDTO(Author author) {
-        this.id = author.getId();
-        this.name = author.getName();
-        this.surname = author.getSurname();
-        this.country = author.getCountry();
-        this.bookIds = author.getBooks().stream()
-                .map(Book::getId)
-                .collect(Collectors.toSet());
-    }
 
     public Integer getId() {
         return id;
@@ -63,5 +48,29 @@ public class AuthorDTO {
 
     public void setBookIds(Set<Integer> bookIds) {
         this.bookIds = bookIds;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        AuthorDTO authorDTO = (AuthorDTO) o;
+        return Objects.equals(id, authorDTO.id) && Objects.equals(name, authorDTO.name) && Objects.equals(surname, authorDTO.surname) && Objects.equals(country, authorDTO.country) && Objects.equals(bookIds, authorDTO.bookIds);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, name, surname, country, bookIds);
+    }
+
+    @Override
+    public String toString() {
+        return "AuthorDTO{" +
+                "id=" + id +
+                ", name='" + name + '\'' +
+                ", surname='" + surname + '\'' +
+                ", country='" + country + '\'' +
+                ", bookIds=" + bookIds +
+                '}';
     }
 }

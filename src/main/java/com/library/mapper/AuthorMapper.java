@@ -5,44 +5,29 @@ import com.library.entity.Author;
 import com.library.entity.Book;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 import org.mapstruct.Named;
-import org.mapstruct.factory.Mappers;
 
-import java.util.HashSet;
+import java.util.Collections;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-@Mapper
+@Mapper(componentModel = "spring")
 public interface AuthorMapper {
-    AuthorMapper INSTANCE = Mappers.getMapper(AuthorMapper.class);
+    @Mapping(target = "bookIds", source = "books", qualifiedByName = "booksToIds")
+    AuthorDTO toDto(Author author);
 
-    @Mapping(target = "bookIds", source = "books", qualifiedByName = "mapBooksToBookIds")
-    AuthorDTO toDTO(Author author);
+    @Mapping(target = "books", ignore = true)
+    Author toEntity(AuthorDTO authorDTO);
 
-    @Mapping(target = "books", source = "bookIds", qualifiedByName = "mapBookIdsToBooks")
-    Author toModel(AuthorDTO authorDTO);
+    @Mapping(target = "books", ignore = true)
+    void updateEntity(AuthorDTO authorDTO, @MappingTarget Author author);
 
-    @Named("mapBooksToBookIds")
-    static Set<Integer> mapBooksToBookIds(Set<Book> books) {
-        if (books == null) {
-            return new HashSet<>();
-        }
+    @Named("booksToIds")
+    default Set<Integer> booksToIds(Set<Book> books) {
+        if (books == null) return Collections.emptySet();
         return books.stream()
                 .map(Book::getId)
-                .collect(Collectors.toSet());
-    }
-
-    @Named("mapBookIdsToBooks")
-    static Set<Book> mapBookIdsToBooks(Set<Integer> bookIds) {
-        if (bookIds == null) {
-            return new HashSet<>();
-        }
-        return bookIds.stream()
-                .map(id -> {
-                    Book book = new Book();
-                    book.setId(id);
-                    return book;
-                })
                 .collect(Collectors.toSet());
     }
 }
