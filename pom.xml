@@ -108,6 +108,14 @@
     </dependencyManagement>
 
     <dependencies>
+
+        <!-- https://mvnrepository.com/artifact/org.apache.tomcat.embed/tomcat-embed-core -->
+        <dependency>
+            <groupId>org.apache.tomcat.embed</groupId>
+            <artifactId>tomcat-embed-core</artifactId>
+            <version>11.0.6</version>
+        </dependency>
+
         <!-- JDBC + PostgreSQL -->
         <dependency>
             <groupId>org.postgresql</groupId>
